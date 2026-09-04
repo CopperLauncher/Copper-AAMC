@@ -37,7 +37,7 @@ Copper is a fork of [Amethyst](https://github.com/AngelAuraMC/Amethyst-Android) 
 ## Introduction
 
 * Copper is a Minecraft: Java Edition launcher for Android based on [Boardwalk](https://github.com/zhuowei/Boardwalk), [PojavLauncher](https://github.com/PojavLauncherTeam/PojavLauncher) and [Amethyst Launcher](https://github.com/AngelAuraMC/Amethyst-Android).
-* This launcher can launch almost all available Minecraft versions ranging from rd-132211 to 26.x snapshots (including Combat Test versions)
+* This launcher can launch almost all available Minecraft versions ranging from rd-132211 to 26.3-snapshot-1 (including Combat Test versions)
 * Modding via Forge and Fabric are also supported.
 * This repository contains source code for Android.
 
