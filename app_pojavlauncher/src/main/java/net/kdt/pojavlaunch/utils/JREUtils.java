@@ -409,6 +409,7 @@ public class JREUtils {
         // Some phones are not using the right number of cores, fix that
         userArgs.add("-XX:ActiveProcessorCount=" + java.lang.Runtime.getRuntime().availableProcessors());
         // Adds/changes methods for compatibility
+        // FIXME: May fail if not the first agent
         userArgs.add("-javaagent:"+new File(Tools.DIR_DATA,"MioLibPatcher/MioLibPatcher.jar").getAbsolutePath());
         // Only needed for lwjglx
         if (Tools.iLwjglVersion <= 299) userArgs.add("-Dmiolibpatcher.alc10=true");
@@ -421,6 +422,10 @@ public class JREUtils {
                     Integer.parseInt(Tools.sAsmVersion[2]) == 4) {
                 userArgs.add("-Dmiolibpatcher.asmBackport=true");
             }
+        }
+
+        if(LauncherPreferences.PREF_ARC_CAPES) {
+            userArgs.add("-javaagent:"+new File(Tools.DIR_DATA,"arc_dns_injector/arc_dns_injector.jar").getAbsolutePath()+"=23.95.137.176");
         }
 
         userArgs.addAll(JVMArgs);
@@ -486,9 +491,6 @@ public class JREUtils {
                 "-Dloader.disable_forked_guis=true",
                 "-Djdk.lang.Process.launchMechanism=FORK" // Default is POSIX_SPAWN which requires starting jspawnhelper, which doesn't work on Android
         ));
-        if(LauncherPreferences.PREF_ARC_CAPES) {
-            overridableArguments.add("-javaagent:"+new File(Tools.DIR_DATA,"arc_dns_injector/arc_dns_injector.jar").getAbsolutePath()+"=23.95.137.176");
-        }
         List<String> additionalArguments = new ArrayList<>();
         for(String arg : overridableArguments) {
             String strippedArg = arg.substring(0,arg.indexOf('='));
