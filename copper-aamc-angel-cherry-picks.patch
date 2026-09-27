@@ -1,0 +1,1695 @@
+From 62a5ace32fde48a8acbc36f7349f277634a552d8 Mon Sep 17 00:00:00 2001
+From: fifth_light <liu-yu-jie@foxmail.com>
+Date: Tue, 25 Aug 2026 22:31:10 +0800
+Subject: [PATCH 1/9] fix(TouchController): add more clamping to IME
+
+---
+ .../utils/TouchControllerInputView.java       | 46 ++++++++++++-------
+ 1 file changed, 30 insertions(+), 16 deletions(-)
+
+diff --git a/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/utils/TouchControllerInputView.java b/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/utils/TouchControllerInputView.java
+index 41148ed8d..98ededfdd 100644
+--- a/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/utils/TouchControllerInputView.java
++++ b/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/utils/TouchControllerInputView.java
+@@ -275,6 +275,10 @@ public class TouchControllerInputView extends View implements LauncherProxyClien
+             return new TextRange(newStart, newLength);
+         }
+ 
++        private int clamp(int value, int min, int max) {
++            return Math.min(max, Math.max(value, min));
++        }
++
+         private void refreshState() {
+             inputMethodManager.updateSelection(
+                     TouchControllerInputView.this,
+@@ -361,7 +365,7 @@ public class TouchControllerInputView extends View implements LauncherProxyClien
+                 int finalCursorPosition = newCursorPosition > 0 ?
+                         currentState.getComposition().getStart() + text.length() + newCursorPosition - 1 :
+                         currentState.getComposition().getStart() - newCursorPosition;
+-                finalCursorPosition = Math.max(0, Math.min(finalCursorPosition, newText.length()));
++                finalCursorPosition = clamp(finalCursorPosition, 0, newText.length());
+                 return new TextInputState(
+                         newText,
+                         TextRange.Companion.getEMPTY(),
+@@ -373,7 +377,7 @@ public class TouchControllerInputView extends View implements LauncherProxyClien
+                 int finalCursorPosition = newCursorPosition > 0 ?
+                         currentState.getSelection().getStart() + text.length() + newCursorPosition - 1 :
+                         currentState.getSelection().getStart() - newCursorPosition;
+-                finalCursorPosition = Math.max(0, Math.min(finalCursorPosition, newText.length()));
++                finalCursorPosition = clamp(finalCursorPosition, 0, newText.length());
+                 return new TextInputState(
+                         newText,
+                         TextRange.Companion.getEMPTY(),
+@@ -662,12 +666,17 @@ public class TouchControllerInputView extends View implements LauncherProxyClien
+ 
+         @Override
+         public boolean setComposingRegion(int start, int end) {
+-            updateState(false, currentState -> new TextInputState(
+-                    currentState.getText(),
+-                    new TextRange(start, end - start),
+-                    currentState.getSelection(),
+-                    currentState.getSelectionLeft()
+-            ));
++            updateState(false, currentState -> {
++                int length = currentState.getText().length();
++                int effectiveStart = clamp(Math.min(start, end), 0, length);
++                int effectiveEnd = clamp(Math.max(start, end), 0, length);
++                return new TextInputState(
++                        currentState.getText(),
++                        new TextRange(effectiveStart, effectiveEnd - effectiveStart),
++                        currentState.getSelection(),
++                        currentState.getSelectionLeft()
++                );
++            });
+             return true;
+         }
+ 
+@@ -679,7 +688,7 @@ public class TouchControllerInputView extends View implements LauncherProxyClien
+                     int finalCursorPosition = newCursorPosition > 0 ?
+                             currentState.getComposition().getStart() + text.length() + newCursorPosition - 1 :
+                             currentState.getComposition().getStart() - newCursorPosition;
+-                    finalCursorPosition = Math.max(0, Math.min(finalCursorPosition, newText.length()));
++                    finalCursorPosition = clamp(finalCursorPosition, 0, newText.length());
+                     return new TextInputState(
+                             newText,
+                             new TextRange(currentState.getComposition().getStart(), text.length()),
+@@ -691,7 +700,7 @@ public class TouchControllerInputView extends View implements LauncherProxyClien
+                     int finalCursorPosition = newCursorPosition > 0 ?
+                             currentState.getSelection().getStart() + text.length() + newCursorPosition - 1 :
+                             currentState.getSelection().getStart() - newCursorPosition;
+-                    finalCursorPosition = Math.max(0, Math.min(finalCursorPosition, newText.length()));
++                    finalCursorPosition = clamp(finalCursorPosition, 0, newText.length());
+                     return new TextInputState(
+                             newText,
+                             new TextRange(currentState.getSelection().getStart(), text.length()),
+@@ -705,12 +714,17 @@ public class TouchControllerInputView extends View implements LauncherProxyClien
+ 
+         @Override
+         public boolean setSelection(int start, int end) {
+-            updateState(currentState -> new TextInputState(
+-                    currentState.getText(),
+-                    currentState.getComposition(),
+-                    new TextRange(start, end - start),
+-                    currentState.getSelectionLeft()
+-            ));
++            updateState(currentState -> {
++                int length = currentState.getText().length();
++                int effectiveStart = clamp(Math.min(start, end), 0, length);
++                int effectiveEnd = clamp(Math.max(start, end), 0, length);
++                return new TextInputState(
++                        currentState.getText(),
++                        currentState.getComposition(),
++                        new TextRange(effectiveStart, effectiveEnd - effectiveStart),
++                        start > end
++                );
++            });
+             return true;
+         }
+     }
+-- 
+2.43.0
+
+
+From e6e02eadb6cacd567773ab2761d3d36b6229e520 Mon Sep 17 00:00:00 2001
+From: tomikun <60690056+alexytomi@users.noreply.github.com>
+Date: Sat, 5 Sep 2026 02:28:54 +0800
+Subject: [PATCH 2/9] fix(README): Bump max supported version to
+ 26.3-snapshot-1
+
+Signed-off-by: tomikun <60690056+alexytomi@users.noreply.github.com>
+---
+ README.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/README.md b/README.md
+index 83b57121d..590b784e4 100644
+--- a/README.md
++++ b/README.md
+@@ -37,7 +37,7 @@ Copper is a fork of [Amethyst](https://github.com/AngelAuraMC/Amethyst-Android)
+ ## Introduction
+ 
+ * Copper is a Minecraft: Java Edition launcher for Android based on [Boardwalk](https://github.com/zhuowei/Boardwalk), [PojavLauncher](https://github.com/PojavLauncherTeam/PojavLauncher) and [Amethyst Launcher](https://github.com/AngelAuraMC/Amethyst-Android).
+-* This launcher can launch almost all available Minecraft versions ranging from rd-132211 to 26.x snapshots (including Combat Test versions)
++* This launcher can launch almost all available Minecraft versions ranging from rd-132211 to 26.3-snapshot-1 (including Combat Test versions)
+ * Modding via Forge and Fabric are also supported.
+ * This repository contains source code for Android.
+ 
+-- 
+2.43.0
+
+
+From 8190f4a47fb238c03637bb432bb2ea4ac4784063 Mon Sep 17 00:00:00 2001
+From: tomikun <60690056+alexytomi@users.noreply.github.com>
+Date: Sat, 5 Sep 2026 06:51:42 +0800
+Subject: [PATCH 3/9] fix(MobileGL): Define LIBGL_ES properly
+
+---
+ .../src/main/java/net/kdt/pojavlaunch/utils/JREUtils.java        | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/utils/JREUtils.java b/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/utils/JREUtils.java
+index 4edc4630c..785371e3e 100644
+--- a/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/utils/JREUtils.java
++++ b/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/utils/JREUtils.java
+@@ -231,6 +231,7 @@ public class JREUtils {
+             }
+             if(LOCAL_RENDERER.equals("opengles_mobileglues")){
+                 envMap.put("MG_DIR_PATH", Tools.DIR_DATA + "/MobileGlues");
++                envMap.put("LIBGL_ES", "3");
+                 envMap.put("POJAVEXEC_EGL","libmobileglues.so");
+             }
+             /*
+-- 
+2.43.0
+
+
+From 8429f28da9eb8d841b3588ff988327ec0d6de57d Mon Sep 17 00:00:00 2001
+From: tomikun <60690056+alexytomi@users.noreply.github.com>
+Date: Tue, 8 Sep 2026 22:03:46 +0800
+Subject: [PATCH 4/9] bump(MioLibPatcher): Delegate asmBackport logic to
+ launcher
+
+---
+ MioLibPatcher                                 |   2 +-
+ .../MioLibPatcher/MioLibPatcher.jar           | Bin 807304 -> 809990 bytes
+ .../assets/components/MioLibPatcher/version   |   2 +-
+ 3 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/MioLibPatcher b/MioLibPatcher
+index 49e4a6e11..9a1f807f2 160000
+--- a/MioLibPatcher
++++ b/MioLibPatcher
+@@ -1 +1 @@
+-Subproject commit 49e4a6e112d2e1bfc33f4b3a4d1fa0e05f2240f5
++Subproject commit 9a1f807f2b8e7abfd921a3ed5a69e23ed6540b0c
+diff --git a/app_pojavlauncher/src/main/assets/components/MioLibPatcher/MioLibPatcher.jar b/app_pojavlauncher/src/main/assets/components/MioLibPatcher/MioLibPatcher.jar
+index bb15c8bb1b88746221a740952eb2f1a055a2915a..3d2db7c6563d3abdb9bd206f205347331456f433 100644
+GIT binary patch
+delta 21638
+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
+z!y;5RnQ?_6Aq6B+F+PCLIFH@K&vd%0DkHDxx1{;nnZ;D7gp&bZ6GfaqM@`|0t#+2s
+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
+W%Nk9Ge}{j{c0a$P2k|e!{Qd`olu!r&
+
+delta 19170
+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
+WFeKzN_%rweC3tvu9-zVJv;PCY4+^dT
+
+diff --git a/app_pojavlauncher/src/main/assets/components/MioLibPatcher/version b/app_pojavlauncher/src/main/assets/components/MioLibPatcher/version
+index bc937212d..7b3a00980 100644
+--- a/app_pojavlauncher/src/main/assets/components/MioLibPatcher/version
++++ b/app_pojavlauncher/src/main/assets/components/MioLibPatcher/version
+@@ -1 +1 @@
+-b3cac85f46a8266bd557e79dcb6de12c1a439d00
+\ No newline at end of file
++ee8d2061f2281a86162d07180a9b1bd33967799e
+\ No newline at end of file
+-- 
+2.43.0
+
+
+From ded0839e51b4a0016c2d9b56ab194a0bcd25b9b1 Mon Sep 17 00:00:00 2001
+From: tomikun <60690056+alexytomi@users.noreply.github.com>
+Date: Tue, 8 Sep 2026 22:06:35 +0800
+Subject: [PATCH 5/9] fix(MioLibPatcher): Only enable patches if needed
+
+---
+ .../src/main/java/net/kdt/pojavlaunch/Tools.java  | 15 +++++++++++----
+ .../java/net/kdt/pojavlaunch/utils/JREUtils.java  | 14 +++++++++++++-
+ 2 files changed, 24 insertions(+), 5 deletions(-)
+
+diff --git a/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/Tools.java b/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/Tools.java
+index d5b770398..b629c32a3 100644
+--- a/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/Tools.java
++++ b/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/Tools.java
+@@ -154,6 +154,7 @@ public final class Tools {
+     public static int iLwjglVersion = 0;
+     public static String sLwjglVersion = null;
+     public static String lwjglNativesDir = null;
++    public static String[] sAsmVersion = null;
+ 
+ 
+     private static File getPojavStorageRoot(Context ctx) {
+@@ -1163,11 +1164,12 @@ public final class Tools {
+     public static void preProcessLibraries(DependentLibrary[] libraries) {
+         for (int i = 0; i < libraries.length; i++) {
+             DependentLibrary libItem = libraries[i];
+-            String[] version = libItem.name.split(":")[2].split("\\.");
++            String libraryVersion = libItem.name.split(":")[2];
++            String[] libraryVersionArray = libraryVersion.split("\\.");
+             if (libItem.name.startsWith("net.java.dev.jna:jna:")) {
+                 // Special handling for LabyMod 1.8.9, Forge 1.12.2(?) and oshi
+                 // we have libjnidispatch 5.13.0 in jniLibs directory
+-                if (Integer.parseInt(version[0]) >= 5 && Integer.parseInt(version[1]) >= 13) continue;
++                if (Integer.parseInt(libraryVersionArray[0]) >= 5 && Integer.parseInt(libraryVersionArray[1]) >= 13) continue;
+                 Log.d(APP_NAME, "Library " + libItem.name + " has been changed to version 5.13.0");
+                 createLibraryInfo(libItem);
+                 libItem.name = "net.java.dev.jna:jna:5.13.0";
+@@ -1178,7 +1180,7 @@ public final class Tools {
+                 //if (Integer.parseInt(version[0]) >= 6 && Integer.parseInt(version[1]) >= 3) return;
+                 // FIXME: ensure compatibility
+ 
+-                if (Integer.parseInt(version[0]) != 6 || Integer.parseInt(version[1]) != 2) continue;
++                if (Integer.parseInt(libraryVersionArray[0]) != 6 || Integer.parseInt(libraryVersionArray[1]) != 2) continue;
+                 Log.d(APP_NAME, "Library " + libItem.name + " has been changed to version 6.3.0");
+                 createLibraryInfo(libItem);
+                 libItem.name = "com.github.oshi:oshi-core:6.3.0";
+@@ -1189,7 +1191,8 @@ public final class Tools {
+                 // Early versions of the ASM library get repalced with 5.0.4 because Pojav's LWJGL is compiled for
+                 // Java 8, which is not supported by old ASM versions. Mod loaders like Forge, which depend on this
+                 // library, often include lwjgl in their class transformations, which causes errors with old ASM versions.
+-                if(Integer.parseInt(version[0]) >= 5) continue;
++                sAsmVersion = libraryVersionArray;
++                if(Integer.parseInt(libraryVersionArray[0]) >= 5) continue;
+                 Log.d(APP_NAME, "Library " + libItem.name + " has been changed to version 5.0.4");
+                 createLibraryInfo(libItem);
+                 libItem.name = "org.ow2.asm:asm-all:5.0.4";
+@@ -1198,6 +1201,10 @@ public final class Tools {
+                 libItem.downloads.artifact.sha1 = "e6244859997b3d4237a552669279780876228909";
+                 libItem.downloads.artifact.url = "https://repo1.maven.org/maven2/org/ow2/asm/asm-all/5.0.4/asm-all-5.0.4.jar";
+             }
++            if (sAsmVersion == null && libItem.name.startsWith("org.ow2.asm:asm")) {
++                // TODO: Extract logic for iLwjglVersion and copy it here
++                sAsmVersion = libraryVersionArray;
++            }
+         }
+     }
+ 
+diff --git a/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/utils/JREUtils.java b/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/utils/JREUtils.java
+index 785371e3e..3e1c735a9 100644
+--- a/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/utils/JREUtils.java
++++ b/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/utils/JREUtils.java
+@@ -7,6 +7,7 @@ import static net.kdt.pojavlaunch.Architecture.is64BitsDevice;
+ import static net.kdt.pojavlaunch.Tools.LOCAL_RENDERER;
+ import static net.kdt.pojavlaunch.Tools.NATIVE_LIB_DIR;
+ import static net.kdt.pojavlaunch.Tools.currentDisplayMetrics;
++import static net.kdt.pojavlaunch.Tools.sAsmVersion;
+ import static net.kdt.pojavlaunch.Tools.shareLog;
+ import static net.kdt.pojavlaunch.prefs.LauncherPreferences.PREF_DUMP_SHADERS;
+ import static net.kdt.pojavlaunch.prefs.LauncherPreferences.PREF_VSYNC_IN_ZINK;
+@@ -409,7 +410,18 @@ public class JREUtils {
+         userArgs.add("-XX:ActiveProcessorCount=" + java.lang.Runtime.getRuntime().availableProcessors());
+         // Adds/changes methods for compatibility
+         userArgs.add("-javaagent:"+new File(Tools.DIR_DATA,"MioLibPatcher/MioLibPatcher.jar").getAbsolutePath());
+-        userArgs.add("-Dmiolibpatcher.alc10=true");
++        // Only needed for lwjglx
++        if (Tools.iLwjglVersion <= 299) userArgs.add("-Dmiolibpatcher.alc10=true");
++
++        if (Tools.sAsmVersion != null) {
++            // We override it with 5.0.4 and no forge version ever used 5.0.4, only 5.0.3
++            // This exists for AE1. If any other buggy mods come up, let's enable it for them too.
++            if (Integer.parseInt(Tools.sAsmVersion[0]) == 5 &&
++                    Integer.parseInt(Tools.sAsmVersion[1]) == 0 &&
++                    Integer.parseInt(Tools.sAsmVersion[2]) == 4) {
++                userArgs.add("-Dmiolibpatcher.asmBackport=true");
++            }
++        }
+ 
+         userArgs.addAll(JVMArgs);
+         activity.runOnUiThread(() -> Toast.makeText(activity, activity.getString(R.string.autoram_info_msg,LauncherPreferences.PREF_RAM_ALLOCATION), Toast.LENGTH_SHORT).show());
+-- 
+2.43.0
+
+
+From f3a9824f52cbe962c5be2e0bf437e0096228ae61 Mon Sep 17 00:00:00 2001
+From: tomikun <60690056+alexytomi@users.noreply.github.com>
+Date: Tue, 22 Sep 2026 02:15:29 +0800
+Subject: [PATCH 6/9] fix(arcmetica): Conflict with MioLibPatcher
+
+---
+ .../src/main/java/net/kdt/pojavlaunch/utils/JREUtils.java | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/utils/JREUtils.java b/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/utils/JREUtils.java
+index 3e1c735a9..9c5613d76 100644
+--- a/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/utils/JREUtils.java
++++ b/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/utils/JREUtils.java
+@@ -409,6 +409,7 @@ public class JREUtils {
+         // Some phones are not using the right number of cores, fix that
+         userArgs.add("-XX:ActiveProcessorCount=" + java.lang.Runtime.getRuntime().availableProcessors());
+         // Adds/changes methods for compatibility
++        // FIXME: May fail if not the first agent
+         userArgs.add("-javaagent:"+new File(Tools.DIR_DATA,"MioLibPatcher/MioLibPatcher.jar").getAbsolutePath());
+         // Only needed for lwjglx
+         if (Tools.iLwjglVersion <= 299) userArgs.add("-Dmiolibpatcher.alc10=true");
+@@ -423,6 +424,10 @@ public class JREUtils {
+             }
+         }
+ 
++        if(LauncherPreferences.PREF_ARC_CAPES) {
++            userArgs.add("-javaagent:"+new File(Tools.DIR_DATA,"arc_dns_injector/arc_dns_injector.jar").getAbsolutePath()+"=23.95.137.176");
++        }
++
+         userArgs.addAll(JVMArgs);
+         activity.runOnUiThread(() -> Toast.makeText(activity, activity.getString(R.string.autoram_info_msg,LauncherPreferences.PREF_RAM_ALLOCATION), Toast.LENGTH_SHORT).show());
+         System.out.println(JVMArgs);
+@@ -486,9 +491,6 @@ public class JREUtils {
+                 "-Dloader.disable_forked_guis=true",
+                 "-Djdk.lang.Process.launchMechanism=FORK" // Default is POSIX_SPAWN which requires starting jspawnhelper, which doesn't work on Android
+         ));
+-        if(LauncherPreferences.PREF_ARC_CAPES) {
+-            overridableArguments.add("-javaagent:"+new File(Tools.DIR_DATA,"arc_dns_injector/arc_dns_injector.jar").getAbsolutePath()+"=23.95.137.176");
+-        }
+         List<String> additionalArguments = new ArrayList<>();
+         for(String arg : overridableArguments) {
+             String strippedArg = arg.substring(0,arg.indexOf('='));
+-- 
+2.43.0
+
+
+From 0bc7678fdbad870de8a8e6cb1fdbb73e56f03e6e Mon Sep 17 00:00:00 2001
+From: tomikun <60690056+alexytomi@users.noreply.github.com>
+Date: Tue, 22 Sep 2026 01:01:02 +0800
+Subject: [PATCH 7/9] rework(dlopen_hook): Small rework to make more standard
+
+---
+ .../src/main/jni/native_hooks/dlopen_hook.c   | 146 +++++++++++-------
+ 1 file changed, 94 insertions(+), 52 deletions(-)
+
+diff --git a/app_pojavlauncher/src/main/jni/native_hooks/dlopen_hook.c b/app_pojavlauncher/src/main/jni/native_hooks/dlopen_hook.c
+index dfdc5caa8..bfd3f0cc1 100644
+--- a/app_pojavlauncher/src/main/jni/native_hooks/dlopen_hook.c
++++ b/app_pojavlauncher/src/main/jni/native_hooks/dlopen_hook.c
+@@ -14,73 +14,112 @@ typedef void *(*dlopen_func_t)(const char *, int);
+ typedef void *(*dlsym_func_t)(void *, const char *);
+ typedef jint (*JNI_OnLoad_t)(JavaVM *vm, void *reserved);
+ 
+-#define SDL_LIBS \
+-    "libSDL3.so", \
+-    "libSDL2.so"
+-
+-static const char *const sdl_libs[] = {
+-        SDL_LIBS
++typedef struct {
++    const char *library_name;
++    const char *library_rename;
++    void *handle;
++    JNI_OnLoad_t jni_onload;
++} LibraryRedirect;
++
++static LibraryRedirect libRedirectInfo[] = {
++        { "libSDL3.so", "libSDL3.so" },
++        { "libSDL2.so", "libSDL2.so" },
++        { NULL, NULL } // Null termination
+ };
+ 
+-static const char *const redirected_libs[] = {
+-        SDL_LIBS,
+-};
++__attribute__((constructor)) static void init() {
++    // We can't hook dlopen so we make do with this.
++    libRedirectInfo[0].handle = dlopen("libSDL3.so", RTLD_LOCAL | RTLD_LAZY);
++    libRedirectInfo[1].handle = dlopen("libSDL2.so", RTLD_LOCAL | RTLD_LAZY);
++}
+ 
+-// Strip the full paths of specific natives so we look inside LD_LIBRARY_PATH instead
+-static const char *redirect_dlopen_path(const char *filename) {
++// Loose matching of lib file name to hard coded list
++static LibraryRedirect* get_library_redirect_if_needed(const char *filename) {
+     if (filename == NULL)
+         return NULL;
+-
+     const char *basename = strrchr(filename, '/');
+     basename = basename ? basename + 1 : filename;
+-
+-    for (size_t i = 0; i < sizeof(redirected_libs) / sizeof(*redirected_libs); ++i) {
+-        if (strcmp(basename, redirected_libs[i]) == 0) {
+-            LOGI("Redirecting dlopen: %s -> %s", filename, redirected_libs[i]);
+-            return redirected_libs[i];
++    for (size_t i = 0; libRedirectInfo[i].library_name != NULL; ++i) {
++        if (strstr(basename, libRedirectInfo[i].library_name) != NULL) {
++            return &libRedirectInfo[i];
+         }
+     }
+-
+-    return filename;
++    return NULL;
+ }
+ 
+-static void *sdl3_handle = NULL;
++void *custom_dlopen(const char *filename, int flags) {
++    LibraryRedirect *redirect = get_library_redirect_if_needed(filename);
++    const char *target_filename = filename;
++    if (redirect != NULL) {
++        target_filename = redirect->library_rename;
++        LOGI("Redirecting dlopen: %s -> %s", filename, target_filename);
++    }
++
++    void *result = BYTEHOOK_CALL_PREV(
++            custom_dlopen,
++            dlopen_func_t,
++            target_filename,
++            flags);
+ 
+-static JNI_OnLoad_t orig_sdl3_JNI_OnLoad;
++    if (redirect != NULL)
++        redirect->handle = result;
+ 
+-static bool ifSdl(const char *filename) {
+-    if (filename == NULL)
+-        return false;
++    BYTEHOOK_POP_STACK();
++    return result;
++}
+ 
+-    const char *basename = strrchr(filename, '/');
+-    basename = basename ? basename + 1 : filename;
++static LibraryRedirect *get_redirect_by_handle(void *handle) {
++    if (handle == NULL)
++        return NULL;
+ 
+-    for (size_t i = 0; i < sizeof(sdl_libs) / sizeof(sdl_libs[0]); ++i) {
+-        if (strcmp(basename, sdl_libs[i]) == 0){
+-            return true;
+-        }
++    for (size_t i = 0; libRedirectInfo[i].library_name != NULL; ++i) {
++        if (libRedirectInfo[i].handle == handle)
++            return &libRedirectInfo[i];
+     }
+-    return false;
++
++    return NULL;
+ }
+ 
+-// Skip if not in dalvik vm cause register_methods needs to be ran in android land
+-static jint custom_sdl3_JNI_OnLoad(JavaVM *vm, void *reserved){
+-    if (pojav_environ->dalvikJavaVMPtr == vm) {
+-        return orig_sdl3_JNI_OnLoad(vm, reserved);
++static jint rerouted_jni_onload(
++        LibraryRedirect *redirect,
++        JavaVM *vm,
++        void *reserved) {
++
++    if (redirect == NULL) {
++        return JNI_ERR;
++    }
++
++    if (pojav_environ != NULL &&
++            pojav_environ->dalvikJavaVMPtr == vm &&
++            redirect->jni_onload != NULL) {
++        return ((JNI_OnLoad_t) redirect->jni_onload)(vm, reserved);
+     }
++
+     return JNI_VERSION_1_4;
+ }
+ 
+-void *custom_dlopen(const char *filename, int flags) {
+-    void *result = BYTEHOOK_CALL_PREV(
+-            custom_dlopen,
+-            dlopen_func_t,
+-            redirect_dlopen_path(filename),
+-            flags);
+-    if (ifSdl(filename)) sdl3_handle = result;
++#define DEFINE_JNI_WRAPPER(id)                                              \
++    static jint jni_onload_##id(                                            \
++            JavaVM *vm,                                                     \
++            void *reserved) {                                               \
++        return rerouted_jni_onload(&libRedirectInfo[id], vm, reserved);     \
++    }
+ 
+-    BYTEHOOK_POP_STACK();
+-    return result;
++// This is a bit magicky yeah
++DEFINE_JNI_WRAPPER(0)
++DEFINE_JNI_WRAPPER(1)
++
++static JNI_OnLoad_t get_jni_onload_wrapper(
++        LibraryRedirect *redirect) {
++    if (redirect == &libRedirectInfo[0]) {
++        return jni_onload_0;
++    }
++
++    if (redirect == &libRedirectInfo[1]) {
++        return jni_onload_1;
++    }
++
++    return NULL;
+ }
+ 
+ void *custom_dlsym(void *handle, const char *symbol) {
+@@ -89,20 +128,23 @@ void *custom_dlsym(void *handle, const char *symbol) {
+             dlsym_func_t,
+             handle,
+             symbol);
+-    BYTEHOOK_POP_STACK();
+-    if (sdl3_handle == NULL) sdl3_handle = dlopen("libSDL3.so", RTLD_LOCAL | RTLD_NOW);
+-
+-    if (sdl3_handle && handle == sdl3_handle && strcmp(symbol, "JNI_OnLoad") == 0) {
+-        orig_sdl3_JNI_OnLoad = (JNI_OnLoad_t) result;
+-        // This outputs in the minecraft logs
+-        LOGI("Amethyst-Android: Intercepted SDL3 JNI_OnLoad: %p", result);
+-        return (void *) custom_sdl3_JNI_OnLoad;
++    LibraryRedirect *redirect = get_redirect_by_handle(handle);
++    if ((redirect != NULL) && strcmp(symbol, "JNI_OnLoad") == 0) {
++        if (strstr(redirect->library_name, "libSDL3")) {
++            redirect->jni_onload = (JNI_OnLoad_t) result;
++            // This outputs in the minecraft logs
++            LOGI("Amethyst-Android: Intercepted dlsym on SDL3 JNI_OnLoad: %p", result);
++            BYTEHOOK_POP_STACK();
++            return get_jni_onload_wrapper(redirect);
++        }
+     }
++    BYTEHOOK_POP_STACK();
+     return result;
+ }
+ 
+ void create_dlopen_hooks(bytehook_hook_all_t bytehook_hook_all_p) {
+     // FIXME: Hooking dlopen causes a crash with Turnip loader, so let's stop doing that entirely
++    // Maybe using android_dlopen_ext would help but I can't be bothered to do that yet
+     bytehook_stub_t stub_dlopen = (void *)(uintptr_t)0xD15AB1ED;
+ //            bytehook_hook_all_p(NULL, "dlopen", &custom_dlopen, NULL, NULL);
+     bytehook_stub_t stub_dlsym =
+-- 
+2.43.0
+
+
+From 275ccb9dedc1dd7e9cacbcbcee2c581cbab23ba7 Mon Sep 17 00:00:00 2001
+From: tomikun <60690056+alexytomi@users.noreply.github.com>
+Date: Tue, 22 Sep 2026 03:41:17 +0800
+Subject: [PATCH 8/9] fix(SDL/Controller): Use SDL_OpenJoystick/Gamepad for
+ controller detection
+
+Previously, SDL_Init was used, but people can just init the GAMEPAD and
+JOYSTICK subsystems which disables the mouse+kb emulation without making
+sure anything was there to eat the controller events. This should fix
+that.
+---
+ .../kdt/pojavlaunch/MinecraftGLSurface.java   |   4 +-
+ .../java/org/lwjgl/glfw/CallbackBridge.java   |  12 +-
+ .../src/main/jni/native_hooks/sdl_hook.c      | 317 ++++++++++++++++++
+ app_pojavlauncher/src/main/jni/utils.h        |   2 +
+ 4 files changed, 332 insertions(+), 3 deletions(-)
+
+diff --git a/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/MinecraftGLSurface.java b/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/MinecraftGLSurface.java
+index 1741ca469..774b4be96 100644
+--- a/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/MinecraftGLSurface.java
++++ b/app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/MinecraftGLSurface.java
+@@ -279,9 +279,9 @@ public class MinecraftGLSurface extends View implements GrabListener, DirectGame
+     private void createGamepad(View contextView, InputDevice inputDevice) {
+         if (CallbackBridge.sGamepadDirectInput) {
+             mGamepadHandler = new DirectGamepad();
+-        } else if (!sdlEnabled) {
++        } else if (!CallbackBridge.sdlControllerActive) {
+             mGamepadHandler = new Gamepad(contextView, inputDevice, DefaultDataProvider.INSTANCE, true);
+-        }
++        } else mGamepadHandler = (i, v) -> {};
+     }
+ 
+     /**
+diff --git a/app_pojavlauncher/src/main/java/org/lwjgl/glfw/CallbackBridge.java b/app_pojavlauncher/src/main/java/org/lwjgl/glfw/CallbackBridge.java
+index 0820dd386..0337c96ef 100644
+--- a/app_pojavlauncher/src/main/java/org/lwjgl/glfw/CallbackBridge.java
++++ b/app_pojavlauncher/src/main/java/org/lwjgl/glfw/CallbackBridge.java
+@@ -44,6 +44,7 @@ public class CallbackBridge {
+     public static final ByteBuffer sGamepadButtonBuffer;
+     public static final FloatBuffer sGamepadAxisBuffer;
+     public static boolean sGamepadDirectInput = false;
++    public static boolean sdlControllerActive = false;
+     private static int sMouseButtonState = 0;
+ 
+     public static void putMouseEventWithCoords(int button, float x, float y) {
+@@ -225,6 +226,8 @@ public class CallbackBridge {
+     // Notification actions
+     public static final int ACTION_INIT_LAUNCHER_INTEGRATION = 0;
+     public static final int ACTION_SEND_TEXTBOX_RECT = 1;
++    public static final int ACTION_INIT_CONTROLLER = 0;
++    public static final int ACTION_DEINIT_CONTROLLER = 0;
+     /**
+      * Used for any sort of notification that needs to be given from the JRE side
+      * @return if notification successful
+@@ -242,7 +245,6 @@ public class CallbackBridge {
+                         System.loadLibrary("SDL3");
+                         System.loadLibrary("SDL2");
+                         org.libsdl.app.SDL.setupJNI();
+-                        onDirectInputEnable();
+                         MinecraftGLSurface.sdlEnabled = true;
+                         if (SDLActivity.getSDLSurface() != null) {
+                             // Notifies SDL of native surface res which is needed for proper input handling
+@@ -257,6 +259,14 @@ public class CallbackBridge {
+                 if (action[0] == ACTION_SEND_TEXTBOX_RECT) {
+                     // implement
+                 }
++                if (action[0] == ACTION_INIT_CONTROLLER) {
++                    sdlControllerActive = true;
++                    onDirectInputEnable();
++                }
++                if (action[0] == ACTION_DEINIT_CONTROLLER) {
++                    sdlControllerActive = false;
++                    onDirectInputEnable();
++                }
+ 
+         }
+         return false;
+diff --git a/app_pojavlauncher/src/main/jni/native_hooks/sdl_hook.c b/app_pojavlauncher/src/main/jni/native_hooks/sdl_hook.c
+index f6b94c75d..a0015d09c 100644
+--- a/app_pojavlauncher/src/main/jni/native_hooks/sdl_hook.c
++++ b/app_pojavlauncher/src/main/jni/native_hooks/sdl_hook.c
+@@ -9,8 +9,13 @@
+ #include <dlfcn.h>
+ #include <jni.h>
+ #include <stdlib.h>
++#include <pthread.h>
+ 
+ DECL_DLSYM(SDL_InitSubSystem)
++DECL_DLSYM(SDL_OpenGamepad)
++DECL_DLSYM(SDL_OpenJoystick)
++DECL_DLSYM(SDL_CloseGamepad)
++DECL_DLSYM(SDL_CloseJoystick)
+ DECL_DLSYM(SDL_SetHint);
+ DECL_DLSYM(SDL_SetTextInputArea);
+ DECL_DLSYM(SDL_SetError);
+@@ -64,9 +69,321 @@ static bool custom_SDL_InitSubSystem_Func(SDL_InitFlags flags) {
+ //    return r;
+ //}
+ 
++/*
++ * Tracked handle lists
++ */
++typedef struct joystick_node {
++    SDL_Joystick *handle;
++    struct joystick_node *next;
++} joystick_node_t;
++
++typedef struct gamepad_node {
++    SDL_Gamepad *handle;
++    struct gamepad_node *next;
++} gamepad_node_t;
++
++static pthread_mutex_t g_sdl_handles_mutex =
++        PTHREAD_MUTEX_INITIALIZER;
++
++static joystick_node_t *g_joysticks = NULL;
++static gamepad_node_t *g_gamepads = NULL;
++
++static int g_joystick_count = 0;
++static int g_gamepad_count = 0;
++static int g_active_sdl_device_count = 0;
++
++/*
++ * Called when the first SDL joystick/gamepad becomes active.
++ */
++static void on_sdl_input_active(void)
++{
++    LOGI("SDL controller integration active");
++    TRY_ATTACH_ENV(dvm_env, pojav_environ->dalvikJavaVMPtr, "SDL_InitSubSystem failed!",
++            SET_DLSYM_PTR(dlopen("libSDL3.so", RTLD_NOLOAD), SDL_SetError);
++            if (SDL_SetError_p) SDL_SetError_p("Failed to load SDL launcher integration android-side. This is not an SDL bug, please contact the launcher developer.");
++            return;
++    );
++    notifyLauncher(dvm_env, NOTIF_TYPE_SDL, (int[]){ACTION_INIT_CONTROLLER}, 1);
++
++}
++
++/*
++ * Called when the last SDL joystick/gamepad becomes inactive.
++ */
++static void on_sdl_input_inactive(void)
++{
++    LOGI("SDL controller integration inactive");
++    TRY_ATTACH_ENV(dvm_env, pojav_environ->dalvikJavaVMPtr, "SDL_InitSubSystem failed!",
++            SET_DLSYM_PTR(dlopen("libSDL3.so", RTLD_NOLOAD), SDL_SetError);
++            if (SDL_SetError_p) SDL_SetError_p("Failed to load SDL launcher integration android-side. This is not an SDL bug, please contact the launcher developer.");
++            return;
++    );
++    notifyLauncher(dvm_env, NOTIF_TYPE_SDL, (int[]){ACTION_DEINIT_CONTROLLER}, 1);
++}
++
++/*
++ * Joystick tracking
++ */
++static void track_joystick(SDL_Joystick *joystick)
++{
++    joystick_node_t *node;
++    int became_active = 0;
++
++    if (joystick == NULL)
++        return;
++
++    node = malloc(sizeof(*node));
++    if (node == NULL) {
++        LOGI("Failed to allocate joystick tracking node");
++        return;
++    }
++
++    node->handle = joystick;
++
++    pthread_mutex_lock(&g_sdl_handles_mutex);
++
++    node->next = g_joysticks;
++    g_joysticks = node;
++
++    g_joystick_count++;
++
++    if (g_active_sdl_device_count == 0)
++        became_active = 1;
++
++    g_active_sdl_device_count++;
++
++    pthread_mutex_unlock(&g_sdl_handles_mutex);
++
++    if (became_active)
++        on_sdl_input_active();
++}
++
++static void untrack_joystick(SDL_Joystick *joystick)
++{
++    joystick_node_t **current;
++    int became_inactive = 0;
++
++    if (joystick == NULL)
++        return;
++
++    pthread_mutex_lock(&g_sdl_handles_mutex);
++
++    current = &g_joysticks;
++
++    while (*current != NULL) {
++        if ((*current)->handle == joystick) {
++            joystick_node_t *removed = *current;
++
++            *current = removed->next;
++            free(removed);
++
++            if (g_joystick_count > 0)
++                g_joystick_count--;
++
++            if (g_active_sdl_device_count > 0)
++                g_active_sdl_device_count--;
++
++            if (g_active_sdl_device_count == 0)
++                became_inactive = 1;
++
++            break;
++        }
++
++        current = &(*current)->next;
++    }
++
++    pthread_mutex_unlock(&g_sdl_handles_mutex);
++
++    if (became_inactive)
++        on_sdl_input_inactive();
++}
++
++/*
++ * Gamepad tracking
++ */
++static void track_gamepad(SDL_Gamepad *gamepad)
++{
++    gamepad_node_t *node;
++    int became_active = 0;
++
++    if (gamepad == NULL)
++        return;
++
++    node = malloc(sizeof(*node));
++    if (node == NULL) {
++        LOGI("Failed to allocate gamepad tracking node");
++        return;
++    }
++
++    node->handle = gamepad;
++
++    pthread_mutex_lock(&g_sdl_handles_mutex);
++
++    node->next = g_gamepads;
++    g_gamepads = node;
++
++    g_gamepad_count++;
++
++    if (g_active_sdl_device_count == 0)
++        became_active = 1;
++
++    g_active_sdl_device_count++;
++
++    pthread_mutex_unlock(&g_sdl_handles_mutex);
++
++    if (became_active)
++        on_sdl_input_active();
++}
++
++static void untrack_gamepad(SDL_Gamepad *gamepad)
++{
++    gamepad_node_t **current;
++    int became_inactive = 0;
++
++    if (gamepad == NULL)
++        return;
++
++    pthread_mutex_lock(&g_sdl_handles_mutex);
++
++    current = &g_gamepads;
++
++    while (*current != NULL) {
++        if ((*current)->handle == gamepad) {
++            gamepad_node_t *removed = *current;
++
++            *current = removed->next;
++            free(removed);
++
++            if (g_gamepad_count > 0)
++                g_gamepad_count--;
++
++            if (g_active_sdl_device_count > 0)
++                g_active_sdl_device_count--;
++
++            if (g_active_sdl_device_count == 0)
++                became_inactive = 1;
++
++            break;
++        }
++
++        current = &(*current)->next;
++    }
++
++    pthread_mutex_unlock(&g_sdl_handles_mutex);
++
++    if (became_inactive)
++        on_sdl_input_inactive();
++}
++
++/*
++ * Hook functions
++ */
++static SDL_Joystick *
++custom_SDL_OpenJoystick_Func(SDL_JoystickID instance_id)
++{
++    SDL_Joystick *result;
++
++    LOGI("SDL_OpenJoystick(%d)", (int)instance_id);
++
++    result = BYTEHOOK_CALL_PREV(
++            custom_SDL_OpenJoystick_Func,
++            SDL_OpenJoystick_t,
++            instance_id
++    );
++
++    BYTEHOOK_POP_STACK();
++
++    if (result != NULL) {
++        track_joystick(result);
++
++        LOGI(
++                "Joystick opened: %p, active devices: %d",
++                result,
++                g_active_sdl_device_count
++        );
++    }
++
++    return result;
++}
++
++static SDL_Gamepad *
++custom_SDL_OpenGamepad_Func(SDL_JoystickID instance_id)
++{
++    SDL_Gamepad *result;
++
++    LOGI("SDL_OpenGamepad(%d)", (int)instance_id);
++
++    result = BYTEHOOK_CALL_PREV(
++            custom_SDL_OpenGamepad_Func,
++            SDL_OpenGamepad_t,
++            instance_id
++    );
++
++    BYTEHOOK_POP_STACK();
++
++    if (result != NULL) {
++        track_gamepad(result);
++
++        LOGI(
++                "Gamepad opened: %p, active devices: %d",
++                result,
++                g_active_sdl_device_count
++        );
++    }
++
++    return result;
++}
++
++static void
++custom_SDL_CloseJoystick_Func(SDL_Joystick *joystick)
++{
++    LOGI("SDL_CloseJoystick(%p)", joystick);
++
++    BYTEHOOK_CALL_PREV(
++            custom_SDL_CloseJoystick_Func,
++            SDL_CloseJoystick_t,
++            joystick
++    );
++
++    BYTEHOOK_POP_STACK();
++
++    untrack_joystick(joystick);
++
++    LOGI(
++            "Joystick closed: %p, active devices: %d",
++            joystick,
++            g_active_sdl_device_count
++    );
++}
++
++static void
++custom_SDL_CloseGamepad_Func(SDL_Gamepad *gamepad)
++{
++    LOGI("SDL_CloseGamepad(%p)", gamepad);
++
++    BYTEHOOK_CALL_PREV(
++            custom_SDL_CloseGamepad_Func,
++            SDL_CloseGamepad_t,
++            gamepad
++    );
++
++    BYTEHOOK_POP_STACK();
++
++    untrack_gamepad(gamepad);
++
++    LOGI(
++            "Gamepad closed: %p, active devices: %d",
++            gamepad,
++            g_active_sdl_device_count
++    );
++}
+ 
+ void create_sdl_hooks(bytehook_hook_all_t bytehook_hook_all_p) {
+     // Don't set callee_path_name to anything besides NULL or else it won't be able to find the symbol
+     bytehook_stub_t stub_SDL_InitSubSystem = bytehook_hook_all_p(NULL, "SDL_InitSubSystem", &custom_SDL_InitSubSystem_Func, NULL, NULL);
++    bytehook_stub_t stub_SDL_OpenJoystick = bytehook_hook_all_p(NULL, "SDL_OpenJoystick", &custom_SDL_OpenJoystick_Func, NULL, NULL);
++    bytehook_stub_t stub_SDL_OpenGamepad  = bytehook_hook_all_p(NULL, "SDL_OpenGamepad",  &custom_SDL_OpenGamepad_Func,  NULL, NULL);
++    bytehook_stub_t stub_SDL_CloseJoystick = bytehook_hook_all_p(NULL, "SDL_CloseJoystick", &custom_SDL_CloseJoystick_Func, NULL, NULL);
++    bytehook_stub_t stub_SDL_CloseGamepad  = bytehook_hook_all_p(NULL, "SDL_CloseGamepad",  &custom_SDL_CloseGamepad_Func,  NULL, NULL);
+     LOGI("Successfully initialized SDL hook, stub: %p\n", stub_SDL_InitSubSystem);
+ }
+\ No newline at end of file
+diff --git a/app_pojavlauncher/src/main/jni/utils.h b/app_pojavlauncher/src/main/jni/utils.h
+index f40d06e08..124061b7e 100644
+--- a/app_pojavlauncher/src/main/jni/utils.h
++++ b/app_pojavlauncher/src/main/jni/utils.h
+@@ -10,6 +10,8 @@
+ #define NOTIF_TYPE_SDL 0
+ #define ACTION_INIT_LAUNCHER_INTEGRATION 0
+ #define ACTION_SEND_TEXTBOX_RECT 1
++#define ACTION_INIT_CONTROLLER 2
++#define ACTION_DEINIT_CONTROLLER 3
+ 
+ #define DECL_DLSYM(fn) typedef typeof(&fn) fn##_t;
+ 
+-- 
+2.43.0
+
+
+From 0557c78d796ee441436bd54decfe16bb97c7f755 Mon Sep 17 00:00:00 2001
+From: tomikun <60690056+alexytomi@users.noreply.github.com>
+Date: Tue, 22 Sep 2026 03:41:17 +0800
+Subject: [PATCH 9/9] fix(SDL/Controller): Incorrect numbers copy pasted
+
+---
+ .../src/main/java/org/lwjgl/glfw/CallbackBridge.java          | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/app_pojavlauncher/src/main/java/org/lwjgl/glfw/CallbackBridge.java b/app_pojavlauncher/src/main/java/org/lwjgl/glfw/CallbackBridge.java
+index 0337c96ef..66da9d0bb 100644
+--- a/app_pojavlauncher/src/main/java/org/lwjgl/glfw/CallbackBridge.java
++++ b/app_pojavlauncher/src/main/java/org/lwjgl/glfw/CallbackBridge.java
+@@ -226,8 +226,8 @@ public class CallbackBridge {
+     // Notification actions
+     public static final int ACTION_INIT_LAUNCHER_INTEGRATION = 0;
+     public static final int ACTION_SEND_TEXTBOX_RECT = 1;
+-    public static final int ACTION_INIT_CONTROLLER = 0;
+-    public static final int ACTION_DEINIT_CONTROLLER = 0;
++    public static final int ACTION_INIT_CONTROLLER = 2;
++    public static final int ACTION_DEINIT_CONTROLLER = 3;
+     /**
+      * Used for any sort of notification that needs to be given from the JRE side
+      * @return if notification successful
+-- 
+2.43.0
+
