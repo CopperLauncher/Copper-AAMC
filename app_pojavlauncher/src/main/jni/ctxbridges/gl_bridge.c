@@ -58,9 +58,28 @@ static void gl4esi_get_display_dimensions(int* width, int* height) {
 gl_render_window_t* gl_init_context(gl_render_window_t *share) {
     gl_render_window_t* bundle = malloc(sizeof(gl_render_window_t));
     memset(bundle, 0, sizeof(gl_render_window_t));
+
+    // Figure out the actual context version we're going to request *before* picking a config,
+    // so the config we choose can actually advertise support for it. This used to be parsed
+    // only after eglChooseConfig_p() had already run against a hardcoded EGL_OPENGL_ES2_BIT
+    // config, which meant an ES3 context (LTW, MobileGlues) could get made current on a config
+    // that was never verified to support ES3 in the first place. Most on-device ES2 configs
+    // happen to also work for ES3 by driver leniency, which hid this for a long time, but a
+    // stricter/spec-compliant EGL implementation like libltw.so's is not guaranteed to accept
+    // that, especially against newer Minecraft (26.3+) EGL/context usage.
+    int libgl_es = strtol(getenv("LIBGL_ES"), NULL, 0);
+    if(libgl_es < 0 || libgl_es > INT16_MAX) libgl_es = 2;
+
     // Should fix old Angelica wanting no ES bit. It'll still get it in opengles_nothing :p
-    int glBit = strncmp(getenv("AMETHYST_RENDERER"), "opengles3_desktopgl", 19) ?  EGL_OPENGL_ES3_BIT : EGL_OPENGL_BIT;
-    EGLint egl_attributes[] = { EGL_BLUE_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_RED_SIZE, 8, EGL_ALPHA_SIZE, 8, EGL_DEPTH_SIZE, 24, EGL_SURFACE_TYPE, EGL_WINDOW_BIT|EGL_PBUFFER_BIT, EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT, EGL_NONE };
+    int glBit;
+    if(strncmp(getenv("AMETHYST_RENDERER"), "opengles3_desktopgl", 19) == 0) {
+        glBit = EGL_OPENGL_BIT;
+    } else if(libgl_es >= 3) {
+        glBit = EGL_OPENGL_ES3_BIT;
+    } else {
+        glBit = EGL_OPENGL_ES2_BIT;
+    }
+    EGLint egl_attributes[] = { EGL_BLUE_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_RED_SIZE, 8, EGL_ALPHA_SIZE, 8, EGL_DEPTH_SIZE, 24, EGL_SURFACE_TYPE, EGL_WINDOW_BIT|EGL_PBUFFER_BIT, EGL_RENDERABLE_TYPE, glBit, EGL_NONE };
     EGLint num_configs = 0;
 
     if (eglChooseConfig_p(g_EglDisplay, egl_attributes, NULL, 0, &num_configs) != EGL_TRUE) {
@@ -90,8 +109,6 @@ gl_render_window_t* gl_init_context(gl_render_window_t *share) {
         if (!bindResult) printf("EGLBridge: bind failed: %p\n", eglGetError_p());
     }
 
-    int libgl_es = strtol(getenv("LIBGL_ES"), NULL, 0);
-    if(libgl_es < 0 || libgl_es > INT16_MAX) libgl_es = 2;
     const EGLint egl_context_attributes[] = { EGL_CONTEXT_CLIENT_VERSION, libgl_es, EGL_NONE };
     bundle->context = eglCreateContext_p(g_EglDisplay, bundle->config, share == NULL ? EGL_NO_CONTEXT : share->context, egl_context_attributes);
 
