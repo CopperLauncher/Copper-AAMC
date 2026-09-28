@@ -7,6 +7,7 @@
 #include <android/api-level.h>
 
 #include "environ/environ.h"
+#include "../ctxbridges/loader_dlopen.h"
 
 #include <dlfcn.h>
 #include <string.h>
@@ -32,6 +33,23 @@ static jlong ndlopen_bugfix(__attribute__((unused)) JNIEnv *env,
     if(strstr(filename, "libvulkan.so") == filename) {
         printf("LWJGL linkerhook: replacing load for libvulkan.so with custom driver\n");
         return (jlong) maybe_load_vulkan();
+    }
+
+    // Minecraft 26.3+ (renderpearl GlBackend) loads EGL through LWJGL itself instead of going
+    // through GLFW, so it asks the linker for the desktop-Linux name (libEGL.so / libEGL.so.1),
+    // which either doesn't exist on Android or would bypass the selected renderer entirely
+    // (the "Could not load EGL library" failure). Hand it the renderer's EGL library instead,
+    // the same one egl_loader.c uses (LTW, MobileGlues, ...). Names like libEGL_angle.so are
+    // left alone since they don't match the prefix below.
+    if(strncmp(filename, "libEGL.so", 9) == 0) {
+        const char* rendererEgl = getenv("POJAVEXEC_EGL");
+        printf("LWJGL linkerhook: EGL requested as '%s', renderer EGL is '%s'\n",
+               filename, rendererEgl ? rendererEgl : "(unset)");
+        if(rendererEgl != NULL) {
+            void* handle = loader_dlopen((char*) rendererEgl, "libEGL.so", (int)jmode);
+            if(handle != NULL) return (jlong) handle;
+            printf("LWJGL linkerhook: failed to load renderer EGL, falling back to default lookup\n");
+        }
     }
 
     // This hook also serves the task of mitigating a bug: the idea is that since, on Android 10 and
